@@ -1,0 +1,631 @@
+import React, { useEffect, useState, useRef } from "react";
+import axios from "axios";
+
+import { useNavigate, useParams } from "react-router-dom";
+import { Editor } from "@tinymce/tinymce-react";
+import API_URL from "./global";
+function EditPost() {
+  const [isActive, setIsActive] = useState(false);
+  const { threadId } = useParams();
+  const [editedThread, setEditedThread] = useState({ title: "", content: "" });
+  const [notification, setNotification] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [isAdmin, setIsAdmin] = useState("");
+  const editorRef = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePath, setImagePath] = useState("");
+  const navigate = useNavigate();
+  const { title, highlightedContent, heading, content, thumbnail } =
+    editedThread;
+  const [stats, setStats] = useState({});
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/forum/`);
+        setStats(response.data);
+      } catch (error) {
+        console.error("Error fetching forum stats:", error);
+      }
+    };
+
+    fetchStats();
+  }, []);
+  //let i = 1;
+  useEffect(() => {
+    async function fetchThreadDetails() {
+      try {
+        const response = await axios.post(`${API_URL}/threads/${threadId}`);
+
+        const threadData = response.data;
+
+        setEditedThread({
+          title: threadData.title,
+          highlightedContent: threadData.highlightedContent,
+          thumbnail: threadData.thumbnail,
+          heading: threadData.heading,
+          content: threadData.content,
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    fetchThreadDetails();
+  }, [threadId]);
+  useEffect(() => {
+    async function getName() {
+      try {
+        const response = await axios.get(`${API_URL}/auth/user`);
+        if (response.data.userName) {
+          setUserName(response.data.userName);
+          setUserId(response.data.userId);
+          setIsAdmin(response.data.isAdmin);
+        } else {
+          setUserName("Guest");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    getName();
+  }, []);
+  const updateThread = async (e) => {
+    e.preventDefault();
+    try {
+      const updatedData = {
+        title: title,
+        highlightedContent: highlightedContent,
+        userId,
+        thumbnail: thumbnail,
+        heading: heading,
+        content: content,
+      };
+
+      await axios.put(`${API_URL}/threads/${threadId}`, updatedData);
+      showNotification("Thread updated successfully!");
+      navigate(`/${threadId}`);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+  const showNotification = (message) => {
+    setNotification(message);
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    await handleUpload(file);
+  };
+  const handleUpload = async (file, isThumbnail = false) => {
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("sampleFile", file);
+
+      const response = await axios.post(`${API_URL}/upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          // You can use 'percentCompleted' to update a loading indicator
+        },
+      });
+
+      setLoading(false);
+
+      if (isThumbnail) {
+        setEditedThread({ ...editedThread, thumbnail: response.data.link });
+      } else {
+        if (editorRef.current) {
+          const editor = editorRef.current;
+          editor.execCommand(
+            "mceInsertContent",
+            false,
+            `<img src="${response.data.link}" alt="Uploaded Image"/>`
+          );
+          setImagePath(response.data.link);
+        }
+      }
+    } catch (error) {
+      setLoading(false);
+      console.error("Error uploading image:", error);
+    }
+  };
+  const handleThumbnail = async (event) => {
+    const file = event.target.files[0];
+    await handleUpload(file, true);
+  };
+  const handleUploadThumbnail = async (file, isThumbnail = false) => {
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+      formData.append("sampleFile", file);
+
+      const response = await axios.post(`${API_URL}/upload`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          // You can use 'percentCompleted' to update a loading indicator
+        },
+      });
+
+      setLoading(false);
+
+      if (isThumbnail) {
+        setEditedThread({ ...editedThread, thumbnail: response.data.link });
+      } else {
+        if (editorRef.current) {
+          const editor = editorRef.current;
+          editor.execCommand(
+            "mceInsertContent",
+            false,
+            `<img src="${response.data.link}" alt="Uploaded Image"/>`
+          );
+        }
+      }
+    } catch (error) {
+      setLoading(false);
+      console.error("Error uploading image:", error);
+    }
+  };
+  const toggleNav = () => {
+    setIsActive(!isActive);
+  };
+  return (
+    <div>
+      {/* <!---------------------Welcome to Revnitro-------------------------------------> */}
+      <div className="welcometorevnitro">
+        <h1>Welcome to Revnitro Forum</h1>
+      </div>
+      {/* <!---------------------Welcome to Revnitro-------------------------------------> */}
+      <div className="flexofcreatepost">
+        <div className="widthofcreatepost">
+          {/* <!--------------------- Revnitro Topics-------------------------------------> */}
+          <div className="revnitrotopicssss">
+            <div className="iconsflexss">
+              <img src="./images/clarity_group-solid.webp" alt="" />
+              <div className="textforumdynamic">
+                {stats.totalHeadings} Topics
+              </div>
+            </div>
+            <div className="iconsflexss">
+              <img src="./images/lets-icons_book-check-fill.webp" alt="" />
+              <div className="textforumdynamic">{stats.totalThreads} Posts</div>
+            </div>
+            <div className="iconsflexss">
+              <img src="./images/mdi_account-view.webp" alt="" />
+              <div className="textforumdynamic">{stats.totalViews} Views</div>
+            </div>
+          </div>
+          {/* <!--------------------- Revnitro Topics-------------------------------------> */}
+
+          {/* <!--------------------- input and filters-------------------------------------> */}
+          <div>
+            <div className="formsandfilters">
+              <div className="inputformpage">
+                <form action="" className="formflexx">
+                  <input type="text" name="searchvalue" placeholder="Search" />
+                  <button className="searchbuttons">
+                    <img src="./images/Vector50.webp" alt="" />
+                  </button>
+                </form>
+              </div>
+              <div className="createpostdivwithnavigationflex">
+                <div className="mobileshowndesktophide">
+                  <div
+                    id="nav-container"
+                    className={isActive ? "is-active" : ""}
+                  >
+                    <div id="nav-toggle" onClick={toggleNav}></div>
+                    <nav className="nav-items">
+                      <div className="leftnavbarboxmobile">
+                        <div>
+                          <div className="notificationinmobileversionzx">
+                            <div
+                              className="belliiconofmobile"
+                              onClick={notificationclickfunction}
+                            >
+                              <img
+                                src="./images/notificationimagesforum.png"
+                                alt=""
+                              />
+                            </div>
+                            <div className="notificationnumberofmessage">
+                              10
+                            </div>
+                            <div></div>
+                          </div>
+                        </div>
+                        <div className="imageflexleftnavbarmobile">
+                          <div className="mobileversionnavbarimagesizess">
+                            <div>
+                              <img
+                                src="./images/Rectangle36.webp"
+                                alt="imagetext"
+                              />
+                            </div>
+                            <div className="editiconinmobileversionbox">
+                              <img src="./images/profileUpdate.png" alt="" />
+                            </div>
+                          </div>
+                          <div className="usernamenavbar">
+                            <h3 className="mobilevrersionnamesize">Guest</h3>
+                            <div className="idnamenamemobile">user-id</div>
+                          </div>
+                        </div>
+                        <div className="navigationbuttontopmobile">
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img
+                                src="./images/mdi_home.webp"
+                                alt="hometext"
+                              />
+                            </div>
+                            <div className="navigatenamesmobile">Home</div>
+                          </div>
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img
+                                src="./images/gridicons_create.webp"
+                                alt="hometext"
+                              />
+                            </div>
+                            <div className="navigatenamesmobile">
+                              Create Post
+                            </div>
+                          </div>
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img
+                                src="./images/fluent_people-team-16-filled.webp"
+                                alt="hometext"
+                              />
+                            </div>
+                            <div className="navigatenamesmobile">Forum</div>
+                          </div>
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img src="./images/Frame9.webp" alt="hometext" />
+                            </div>
+                            <div className="navigatenamesmobile">
+                              Revnitro Team
+                            </div>
+                          </div>
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img
+                                src="./images/iconamoon_news-fill.webp"
+                                alt="hometext"
+                              />
+                            </div>
+                            <div className="navigatenamesmobile">My Post</div>
+                          </div>
+                          <div className="navigatelinksmobile">
+                            <div>
+                              <img
+                                src="./images/ooui_log-in-ltr.webp"
+                                alt="hometext"
+                              />
+                            </div>
+                            <div className="navigatenamesmobile">Log in</div>
+                          </div>
+                        </div>
+                      </div>
+                    </nav>
+                  </div>
+                </div>
+                <div className="CreateYourPost">Create Your Post</div>
+              </div>
+            </div>
+          </div>
+          {/* <!--------------------- input and filters-------------------------------------> */}
+
+          {/* <!--------------------- flex post content-------------------------------------> */}
+          <div>
+            <div className="createpostfunction">
+              <div className="leftnavbarbox">
+                <div
+                  className="notificationareapostion"
+                  onClick={notificationclickfunction}
+                >
+                  <div>
+                    <img src="./images/notificationimagesforum.png" alt="" />
+                  </div>
+                  <div className="notificationnumberofmessage">10</div>
+                </div>
+                <div className="imageflexleftnavbar">
+                  <div className="profilephotosssupate">
+                    <img src="./images/profilePhoto.png" alt="imagetext" />
+                  </div>
+                  <div className="editimageprofilepicsabsolute">
+                    <img src="./images/profileUpdate.png" alt="" />
+                  </div>
+                  <div className="usernamenavbar">
+                    <h3>
+                      Dhinesh Kumar<span></span>
+                    </h3>
+                    <div className="idnamename">dinesh06</div>
+                  </div>
+                </div>
+                <div className="navigationbuttontop">
+                  <div className="navigatelinks">
+                    <div>
+                      <img src="./images/mdi_home.webp" alt="hometext" />
+                    </div>
+                    <div className="navigatenames">Home</div>
+                  </div>
+                  <div className="navigatelinks">
+                    <div>
+                      <img
+                        src="./images/gridicons_create.webp"
+                        alt="hometext"
+                      />
+                    </div>
+                    <div className="navigatenames">Create Post</div>
+                  </div>
+                  <div className="navigatelinks">
+                    <div>
+                      <img
+                        src="./images/fluent_people-team-16-filled.webp"
+                        alt="hometext"
+                      />
+                    </div>
+                    <div className="navigatenames">Forum</div>
+                  </div>
+                  <div className="navigatelinks">
+                    <div>
+                      <img src="./images/Frame9.webp" alt="hometext" />
+                    </div>
+                    <div className="navigatenames">Revnitro Team</div>
+                  </div>
+                  <div className="navigatelinks">
+                    <div>
+                      <img
+                        src="./images/iconamoon_news-fill.webp"
+                        alt="hometext"
+                      />
+                    </div>
+                    <div className="navigatenames">My Post</div>
+                  </div>
+                  <div className="navigatelinks">
+                    <div>
+                      <img src="./images/ooui_log-in-ltr.webp" alt="hometext" />
+                    </div>
+                    <div className="navigatenames">Log in</div>
+                  </div>
+                </div>
+              </div>
+              <div className="rightcreatepost">
+                <div className="createpostdiv">
+                  <div className="personposted">
+                    <div className="uploadname">
+                      <div>
+                        <img src="./images/Rectangle36.webp" alt="" />
+                      </div>
+                      <div>
+                        <div className="uploadpersonname">Dhinesh Kumar</div>
+                        <div className="uernamepost">Dhinesh123</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* <!---continueee--> */}
+
+                  <div className="postionofimage">
+                    <form action="" onSubmit={updateThread}>
+                      <div className="cforumtopics">
+                        <div className="headingcreatepost">Forum Topics</div>
+                        <div className="cmarginleft">
+                          <label htmlFor="createpost">
+                            <select
+                              type="text"
+                              placeholder="Select the Heading"
+                              value={heading}
+                              onChange={(e) =>
+                                setEditedThread({
+                                  ...editedThread,
+                                  heading: e.target.value,
+                                })
+                              }
+                              required
+                            >
+                              <option value="select a heading" disabled>
+                                select a heading
+                              </option>
+                              <option value="Car">Car</option>
+                              <option value="Bike">Bike</option>
+                              <option value="Technical Tips">
+                                Technical Tips
+                              </option>
+                              <option value="Rider Tips">Rider Tips</option>
+                              {isAdmin && (
+                                <option value="RevNitro">Revnitro</option>
+                              )}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="cheadingtopics">
+                        <div className="headingcreatepost">Title</div>
+                        <div className="cinputforumcreatepost">
+                          <input
+                            type="text"
+                            placeholder="Title"
+                            value={editedThread.title}
+                            onChange={(e) =>
+                              setEditedThread({
+                                ...editedThread,
+                                title: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="thumbnailsecrionforcreatepost">
+                        <div className="thumbnailtextscreatepost">
+                          Thumbnail
+                        </div>
+                        <div className="imagethumbnailpreviewdivtag">
+                          <div>
+                            <div className="file-input">
+                              <input
+                                type="file"
+                                name="sampleFile"
+                                onChange={handleThumbnail}
+                                id="file-input"
+                                className="file-input__input"
+                              />
+                              <label
+                                className="file-input__label"
+                                htmlFor="file-input"
+                              >
+                                <img src="./images/tabler_photo.png" alt="" />
+                                <span className="uploadimagecreatepost">
+                                  Select Thumbnail
+                                </span>
+                              </label>
+                            </div>
+                            <div className="recommenededsizees">
+                              Recomended 900x350 px
+                            </div>
+                          </div>
+
+                          {editedThread.thumbnail && (
+                            <div className="previewwimagesizee">
+                              <img
+                                src={editedThread.thumbnail}
+                                alt=""
+                                style={{
+                                  width: "200px",
+                                  height: "77.78px",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="breifdescriptionzsflex">
+                        <div className="breiefdescriptionnamee">
+                          Brief Description
+                        </div>
+                        <div className="breifedescriptiontrextareabox">
+                          <textarea
+                            type="text"
+                            // name=""
+                            // id=""
+                            cols="30"
+                            rows="10"
+                            // maxLength="300"
+                            placeholder="Maximum 300 Words"
+                            value={highlightedContent}
+                            onChange={(e) =>
+                              setEditedThread({
+                                ...editedThread,
+                                highlightedContent: e.target.value,
+                              })
+                            }
+                            required
+                          />
+                        </div>
+                      </div>
+                      <div className="thumbnailsecrionforcreatepost11">
+                        <div className="thumbnailtextscreatepost">Post</div>
+                        <div className="imagethumbnailpreviewdivtag">
+                          <div>
+                            <div className="file-input">
+                              <input
+                                type="file"
+                                name="sampleFile"
+                                onChange={handleFileChange}
+                                className="file-input__input"
+                                id="file-insert"
+                              />
+                              <label
+                                className="file-input__label"
+                                htmlFor="file-insert"
+                              >
+                                <img src="./images/tabler_photo.png" alt="" />
+                                <span className="uploadimagecreatepost">
+                                  Insert Image
+                                </span>
+                              </label>
+                            </div>
+                            {loading && <p>Image Loading...</p>}
+                            <div className="recommenededsizees"></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Editor
+                          apiKey="2edzfx0mgryctyfre9pj8d0fikd96259j7w4wvz15jcfma3g"
+                          //initialValue={newThread.content}
+                          //onInit={(evt, editor) => (editorRef.current = editor)}
+                          init={{
+                            plugins:
+                              "anchor autolink charmap codesample emoticons image link lists media searchreplace table visualblocks wordcount",
+                            toolbar1:
+                              "undo redo | blocks fontfamily fontsize | bold italic underline strikethrough  | tinycomments | checklist numlist bullist indent outdent | emoticons charmap | removeformat",
+                            toolbar2:
+                              "link image media table mergetags | align lineheight",
+                            tinycomments_mode: "embedded",
+                            tinycomments_author: "Author name",
+                            mergetags_list: [
+                              { value: "First.Name", title: "First Name" },
+                              { value: "Email", title: "Email" },
+                            ],
+                            setup: (editor) => {
+                              editorRef.current = editor; // Save the editor instance to the ref
+                            },
+                          }}
+                          value={content}
+                          onEditorChange={(content) => {
+                            setEditedThread({ ...editedThread, content });
+                          }}
+                        />
+                      </div>
+                      <div className="buttonsubmit">
+                        <button type="submit">Upload your Post</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* <!--------------------- flex post content-------------------------------------> */}
+        </div>
+      </div>
+      <div className={`notification-container ${notification ? "show" : ""}`}>
+        {notification}
+      </div>
+    </div>
+  );
+}
+
+function notificationclickfunction() {
+  var notificationnumberofmessage = document.getElementsByClassName(
+    "notificationnumberofmessage"
+  );
+  notificationnumberofmessage[0].style.display = "none";
+  notificationnumberofmessage[1].style.display = "none";
+}
+
+export default EditPost;
